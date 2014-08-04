@@ -14,7 +14,7 @@ nowPlayingDisc = 0
 totalDisccount = 0
 
 # API http bits
-conn = httplib.HTTPSConnection('www.murfie.com')
+conn = httplib.HTTPSConnection('api.murfie.com')
 
 # init lcd library for pi plate
 lcd = LCD.Adafruit_CharLCDPlate()
@@ -75,9 +75,10 @@ def pickDisc():
 	print("\n%s by %s selected" % (apijson[selecteddisc]['disc']['album']['title'],apijson[selecteddisc]['disc']['album']['main_artist']))
 
 	# get tracks for selected disc
-	conn.request('GET', '/api/discs/%d.json' % apijson[selecteddisc]['disc']['id'])
+	conn.request('GET', '/api/discs/%d.json?auth_token=%s' % (apijson[selecteddisc]['disc']['id'], authtoken))
 	response = conn.getresponse()
 	apiResult = json.loads(response.read())
+
 	conn.close()
 	disc = apiResult['disc']
 
