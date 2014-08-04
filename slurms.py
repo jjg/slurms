@@ -4,6 +4,7 @@ import httplib, urllib, json, getpass
 from subprocess import call
 import Adafruit_CharLCD as LCD
 import smtplib
+import sys
 
 # config
 email = 'flactester@murfie.com'
@@ -62,10 +63,10 @@ def logMessage(message, level):
 	if level == 3:
 
 		server = smtplib.SMTP('smtp.gmail.com', 587)
-		server.startttls()
+		server.starttls()
 		server.login('jason@murfie.com','backinblack')
 
-		server.sendmail('jason@murfie.com', '9203199152@vtext.com', message)
+		server.sendmail('jason@murfie.com', '9203199152@vtext.com', '\n%s' % message)
 
 def authenticate(email, password):
 
@@ -83,8 +84,8 @@ def authenticate(email, password):
 
 		return apiResult['user']['token']
 
-	except(ex):
-		logMessage('error authenticating, ' + ex, 3)
+	except:
+		logMessage('error authenticating: %s' % sys.exc_info()[0], 3)
 		return None
 
 def pickDisc():
@@ -95,8 +96,8 @@ def pickDisc():
 		response = conn.getresponse()
 		apijson = json.loads(response.read())
 
- 	except(ex):
-		logMessage('error loading albums: ' + ex, 3)
+ 	except:
+		logMessage('error loading albums: %s' % sys.exc_info()[0], 3)
  		return None
 
 	# select the disc to play
@@ -108,8 +109,8 @@ def pickDisc():
 		selecteddiscid = apijson[selecteddisc]['disc']['id']
 		print("\n%s by %s selected" % (apijson[selecteddisc]['disc']['album']['title'],apijson[selecteddisc]['disc']['album']['main_artist']))
 
-	except(ex):
-		logMessage('error selecting disc: ' + ex, 3)
+	except:
+		logMessage('error selecting disc: %s' % sys.exc_info()[0], 3)
 		return None
 	
 	# get tracks for selected disc
@@ -123,8 +124,8 @@ def pickDisc():
 
 		return disc
 
-	except(ex):
-		logMessage('error loading tracks: ' + ex, 3)
+	except:
+		logMessage('error loading tracks: %s' % sys.exc_info()[0], 3)
 		return None 
 
 def playDisc(disc):
@@ -148,8 +149,8 @@ def playDisc(disc):
 
 			call('mplayer -quiet %s' % mediaUri, shell=True)
 
-		except(ex):
-			logMessage('error playing track: ' + ex, 3)
+		except:
+			logMessage('error playing track: %s' % sys.exc_info()[0], 3)
 
 	# when the disc is over, select another
 	global nowPlayingDisc
