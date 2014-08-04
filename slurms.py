@@ -3,6 +3,7 @@
 import httplib, urllib, json, getpass
 from subprocess import call
 import Adafruit_CharLCD as LCD
+import smtplib
 
 # config
 email = 'flactester@murfie.com'
@@ -12,6 +13,9 @@ password = 'T35T1NGMurf13'
 authtoken = ''
 nowPlayingDisc = 0
 totalDisccount = 0
+noticeCount = 0
+warnCount = 0
+errorCount = 0
 
 # API http bits
 conn = httplib.HTTPSConnection('api.murfie.com')
@@ -24,65 +28,92 @@ def logMessage(message, level):
 	print(message)
 
 	if level == 'notice':
+		global noticeCount
+		noticeCount = noticeCount + 1 
 		lcd.set_color(1.0, 1.0, 1.0)
 
 	if level == 'warn':
+		global warnCount
+		warnCount = warnCount + 1
 		lcd.set_color(0.0, 1.0, 1.0)
 
 	if level == 'error':
+		global errorCount
+		errorCount = errorCount + 1
 		lcd.set_color(1.0, 0.0, 0.0)
 
 	lcd.clear()
 	lcd.message(message)
+	lcd.message('\nn:%s w:%s e:%s' % (noticeCount, warnCount, errorCount))
+
+	# notify jason of errors
+	if level == 'error':
+
+		server = smtplib.SMTP('smtp.gmail.com', 587)
+		server.startttls()
+		server.login('jason@murfie.com','backinblack')
+
+		server.sendmail('jason@murfie.com', '9203199152@vtext.com', message)
 
 def authenticate(email, password):
 
 	logMessage('authenticating', 'notice')
 
-	# gather the authentication credentials
-	#email = raw_input('Email:')
-	#password = getpass.getpass()
+	try:
+		# get the token
+		params = urllib.urlencode({'email':email, 'password':password})
+		headers = {'Content-type':'application/x-www-form-urlencoded','Accept':'text/plain'}
+		conn.request('POST', '/api/tokens', params, headers)
+		response = conn.getresponse()
 
-	# get the token
-	params = urllib.urlencode({'email':email, 'password':password})
-	headers = {'Content-type':'application/x-www-form-urlencoded','Accept':'text/plain'}
-	conn.request('POST', '/api/tokens', params, headers)
-	response = conn.getresponse()
+		apiResult = json.loads(response.read())
+		conn.close()
 
-	apiResult = json.loads(response.read())
-	conn.close()
+		return apiResult['user']['token']
 
-	return apiResult['user']['token']
+	except(ex):
+		logMessage('error authenticating, ' + ex, 'error')
+		return None
 
 def pickDisc():
 
-	logMessage('picking next disc', 'notice')
-
 	# get the album list
-	conn.request('GET', '/api/discs.json?auth_token=' + authtoken)
-	response = conn.getresponse()
-	apijson = json.loads(response.read())
-	#discindex = 0
-	#for disc in apijson:
-	#	print discindex, disc['disc']['album']['title']
-	#	discindex += 1
+	try:
+		conn.request('GET', '/api/discs.json?auth_token=' + authtoken + '&device=slurms')
+		response = conn.getresponse()
+		apijson = json.loads(response.read())
 
-	global totalDiscCount
-	totalDiscCount = len(apijson)
+ 	except(ex):
+		logMessage('error loading albums: ' + ex, 'error')
+ 		return None
 
-	selecteddisc = nowPlayingDisc  #int(raw_input('\nDisc to play: '))
-	selecteddiscid = apijson[selecteddisc]['disc']['id']
-	print("\n%s by %s selected" % (apijson[selecteddisc]['disc']['album']['title'],apijson[selecteddisc]['disc']['album']['main_artist']))
+	# select the disc to play
+	try:
+		global totalDiscCount
+		totalDiscCount = len(apijson)
 
+		selecteddisc = nowPlayingDisc
+		selecteddiscid = apijson[selecteddisc]['disc']['id']
+		print("\n%s by %s selected" % (apijson[selecteddisc]['disc']['album']['title'],apijson[selecteddisc]['disc']['album']['main_artist']))
+
+	except(ex):
+		logMessage('error selecting disc: ' + ex, 'error')
+		return None
+	
 	# get tracks for selected disc
-	conn.request('GET', '/api/discs/%d.json?auth_token=%s' % (apijson[selecteddisc]['disc']['id'], authtoken))
-	response = conn.getresponse()
-	apiResult = json.loads(response.read())
+	try:
+		conn.request('GET', '/api/discs/%d.json?auth_token=%s' % (apijson[selecteddisc]['disc']['id'], authtoken + '&device=slurms'))
+		response = conn.getresponse()
+		apiResult = json.loads(response.read())
 
-	conn.close()
-	disc = apiResult['disc']
+		conn.close()
+		disc = apiResult['disc']
 
-	return disc
+		return disc
+
+	except(ex):
+		logMessage('error loading tracks: ' + ex, 'error')
+		return None 
 
 def playDisc(disc):
 
@@ -90,10 +121,12 @@ def playDisc(disc):
 	for track in disc['tracks']:
 
 		try:
-			logMessage('%s \n by %s' % (track['title'], disc['album']['main_artist']), 'notice')
+			logMessage(track['title'], 'notice')
+
+			#logMessage('%s \n by %s' % (track['title'], disc['album']['main_artist']), 'notice')
 
 			# get the media Uri
-			conn.request('GET', '/api/discs/%s/tracks/%s.json?auth_token=%s' % (disc['id'],track['id'],authtoken))
+			conn.request('GET', '/api/discs/%s/tracks/%s.json?auth_token=%s' % (disc['id'],track['id'],authtoken + '&device=slurms'))
 			response = conn.getresponse()
 			apiResult = json.loads(response.read())
 			conn.close()
@@ -104,7 +137,7 @@ def playDisc(disc):
 			call('mplayer -quiet %s' % mediaUri, shell=True)
 
 		except(ex):
-			logMessage(ex, 'error')
+			logMessage('error playing track: ' + ex, 'error')
 
 	# when the disc is over, select another
 	global nowPlayingDisc
@@ -113,6 +146,8 @@ def playDisc(disc):
 	if nowPlayingDisc < totalDiscCount:
 		logMessage('so tired of partying...', 'warn')
 		playDisc(pickDisc())
+	else:
+		logMessage('Can I stop parytying now?', 'warn')
 
 # start by authenticating
 logMessage('Wibby wam wam wozzel!', 'notice')
