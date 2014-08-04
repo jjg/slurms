@@ -16,6 +16,7 @@ totalDisccount = 0
 noticeCount = 0
 warnCount = 0
 errorCount = 0
+peakMessageLevel = 0  
 
 # API http bits
 conn = httplib.HTTPSConnection('api.murfie.com')
@@ -25,29 +26,40 @@ lcd = LCD.Adafruit_CharLCDPlate()
 
 def logMessage(message, level):
 
+	global noticeCount
+	global warnCount
+	global errorCount
+	global peakMessageLevel
+
 	print(message)
 
-	if level == 'notice':
-		global noticeCount
+	if level == 1:
 		noticeCount = noticeCount + 1 
-		lcd.set_color(1.0, 1.0, 1.0)
 
-	if level == 'warn':
-		global warnCount
+		if peakMessageLevel < 1:
+			peakMessageLevel = 1
+			lcd.set_color(0.0, 1.0, 0.0)
+
+	if level == 2:
 		warnCount = warnCount + 1
-		lcd.set_color(0.0, 1.0, 1.0)
 
-	if level == 'error':
-		global errorCount
+		if peakMessageLevel < 2:
+			peakMessageLevel = 2
+			lcd.set_color(0.0, 1.0, 1.0)
+
+	if level == 3:
 		errorCount = errorCount + 1
-		lcd.set_color(1.0, 0.0, 0.0)
+
+		if peakMessageLevel < 3:
+			peakMessageLevel = 3
+			lcd.set_color(1.0, 0.0, 0.0)
 
 	lcd.clear()
 	lcd.message(message)
 	lcd.message('\nn:%s w:%s e:%s' % (noticeCount, warnCount, errorCount))
 
 	# notify jason of errors
-	if level == 'error':
+	if level == 3:
 
 		server = smtplib.SMTP('smtp.gmail.com', 587)
 		server.startttls()
@@ -57,7 +69,7 @@ def logMessage(message, level):
 
 def authenticate(email, password):
 
-	logMessage('authenticating', 'notice')
+	logMessage('authenticating', 1)
 
 	try:
 		# get the token
@@ -72,7 +84,7 @@ def authenticate(email, password):
 		return apiResult['user']['token']
 
 	except(ex):
-		logMessage('error authenticating, ' + ex, 'error')
+		logMessage('error authenticating, ' + ex, 3)
 		return None
 
 def pickDisc():
@@ -84,7 +96,7 @@ def pickDisc():
 		apijson = json.loads(response.read())
 
  	except(ex):
-		logMessage('error loading albums: ' + ex, 'error')
+		logMessage('error loading albums: ' + ex, 3)
  		return None
 
 	# select the disc to play
@@ -97,7 +109,7 @@ def pickDisc():
 		print("\n%s by %s selected" % (apijson[selecteddisc]['disc']['album']['title'],apijson[selecteddisc]['disc']['album']['main_artist']))
 
 	except(ex):
-		logMessage('error selecting disc: ' + ex, 'error')
+		logMessage('error selecting disc: ' + ex, 3)
 		return None
 	
 	# get tracks for selected disc
@@ -112,7 +124,7 @@ def pickDisc():
 		return disc
 
 	except(ex):
-		logMessage('error loading tracks: ' + ex, 'error')
+		logMessage('error loading tracks: ' + ex, 3)
 		return None 
 
 def playDisc(disc):
@@ -121,7 +133,7 @@ def playDisc(disc):
 	for track in disc['tracks']:
 
 		try:
-			logMessage(track['title'], 'notice')
+			logMessage(track['title'], 1)
 
 			#logMessage('%s \n by %s' % (track['title'], disc['album']['main_artist']), 'notice')
 
@@ -137,20 +149,20 @@ def playDisc(disc):
 			call('mplayer -quiet %s' % mediaUri, shell=True)
 
 		except(ex):
-			logMessage('error playing track: ' + ex, 'error')
+			logMessage('error playing track: ' + ex, 3)
 
 	# when the disc is over, select another
 	global nowPlayingDisc
 	nowPlayingDisc = nowPlayingDisc + 1
 
 	if nowPlayingDisc < totalDiscCount:
-		logMessage('so tired of partying...', 'warn')
+		#logMessage('so tired of partying...', 2)
 		playDisc(pickDisc())
 	else:
-		logMessage('Can I stop parytying now?', 'warn')
+		logMessage('Can I stop parytying now?', 2)
 
 # start by authenticating
-logMessage('Wibby wam wam wozzel!', 'notice')
+logMessage('Wibby wam wam wozzel!', 1)
 
 authtoken = authenticate(email, password)
 playDisc(pickDisc())
