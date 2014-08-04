@@ -139,7 +139,7 @@ def playDisc(disc):
 			#logMessage('%s \n by %s' % (track['title'], disc['album']['main_artist']), 'notice')
 
 			# get the media Uri
-			conn.request('GET', '/api/discs/%s/tracks/%s.json?auth_token=%s' % (disc['id'],track['id'],authtoken + '&device=slurms'))
+			conn.request('GET', '/api/discs/%s/tracks/%s.json?auth_token=%s' % (disc['id'],track['id'],authtoken + '&media_format=flac&device=slurms'))
 			response = conn.getresponse()
 			apiResult = json.loads(response.read())
 			conn.close()
@@ -157,10 +157,15 @@ def playDisc(disc):
 	nowPlayingDisc = nowPlayingDisc + 1
 
 	if nowPlayingDisc < totalDiscCount:
-		#logMessage('so tired of partying...', 2)
 		playDisc(pickDisc())
+
 	else:
+
 		logMessage('Can I stop parytying now?', 2)
+		
+		# no can-do Slurms...
+		nowPlayingDisc = 0
+		playDisc(pickDisc())
 
 # start by authenticating
 logMessage('Wibby wam wam wozzel!', 1)
