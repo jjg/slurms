@@ -46,7 +46,7 @@ def logMessage(message, level):
 
 		if peakMessageLevel < 2:
 			peakMessageLevel = 2
-			lcd.set_color(0.0, 1.0, 1.0)
+			lcd.set_color(1.0, 1.0, 0.0)
 
 	if level == 3:
 		errorCount = errorCount + 1
