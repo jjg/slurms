@@ -64,9 +64,9 @@ def logMessage(message, level):
 
 		server = smtplib.SMTP('smtp.gmail.com', 587)
 		server.starttls()
-		server.login('jason@murfie.com','backinblack')
+		server.login('notify@email.com','password')
 
-		server.sendmail('jason@murfie.com', '9203199152@vtext.com', '\n%s' % message)
+		server.sendmail('notify@email.com', 'notify@email.com', '\n%s' % message)
 
 def authenticate(email, password):
 
